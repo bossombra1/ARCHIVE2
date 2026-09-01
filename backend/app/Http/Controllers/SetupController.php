@@ -14,10 +14,11 @@ use Illuminate\Support\Facades\DB;
 
 class SetupController extends Controller
 {
+    // Vérifier si l'application est déjà configurée (appelé par React au démarrage)
     public function checkSetup()
     {
         $company = Company::first();
-        $isConfigured = $company ? (bool)$company->is_configured : false;
+        $isConfigured = $company ? (bool) $company->is_configured : false;
 
         return response()->json([
             'is_configured' => $isConfigured,
@@ -25,56 +26,65 @@ class SetupController extends Controller
         ]);
     }
 
+    /**
+     * Route GET /api/setup/check
+     *
+     * Renvoie is_configured (booléen) + company (ou null).
+     * La clé 'is_configured' est celle attendue par le frontend
+     * (cf. App.jsx -> setupService.checkSetup()).
+     *
+     * On garde aussi 'configured' pour rétro-compatibilité, mais le
+     * frontend utilise 'is_configured'.
+     */
     public function check()
     {
         try {
-            $isConfigured = Company::where('is_configured', true)->exists(); 
+            $company = Company::first();
+            $isConfigured = $company ? (bool) $company->is_configured : false;
 
             return response()->json([
-                'configured' => $isConfigured
+                'is_configured' => $isConfigured,
+                'configured' => $isConfigured, // rétro-compat
+                'company' => $company,
             ]);
         } catch (\Exception $e) {
+            // En cas d'erreur (ex: table non migrée), retourne l'erreur proprement
             return response()->json([
+                'is_configured' => false,
                 'configured' => false,
                 'error' => $e->getMessage()
             ], 500);
         }
     }
 
+    // Enregistrer la configuration initiale
     public function storeSetup(Request $request)
     {
+        // Vérifier si c'est déjà configuré pour bloquer les doubles configurations
         $existingCompany = Company::first();
         if ($existingCompany && $existingCompany->is_configured) {
             return response()->json(['message' => 'L\'application est déjà configurée.'], 403);
         }
 
-        // Standardisation de la taille reçue depuis le frontend
-        if ($request->has('company_size')) {
-            $sizeInput = strtolower($request->company_size);
-            if (str_contains($sizeInput, 'petit') || $sizeInput === 'small') {
-                $request->merge(['company_size' => 'small']);
-            } else {
-                $request->merge(['company_size' => 'large']);
-            }
-        }
-
         $request->validate([
             'company_name' => 'required|string|max:255',
             'company_size' => 'required|in:small,large',
-            'admin_name'   => 'required|string|max:255',
-            'admin_email'  => 'required|email|unique:users,email',
+            'admin_name' => 'required|string|max:255',
+            'admin_email' => 'required|email|unique:users,email',
             'admin_password' => 'required|min:6',
-            'logo'         => 'nullable|image|mimes:png,jpg,jpeg,gif|max:2048',
+            'logo' => 'nullable|image|mimes:png,jpg,jpeg,gif|max:2048',
         ]);
 
         try {
             DB::beginTransaction();
 
+            // 1. Gérer le logo si présent
             $logoPath = null;
             if ($request->hasFile('logo')) {
                 $logoPath = $request->file('logo')->store('logos', 'public');
             }
 
+            // 2. Créer ou mettre à jour l'entreprise
             $company = Company::updateOrCreate(
                 ['id' => 1],
                 [
@@ -85,16 +95,16 @@ class SetupController extends Controller
                 ]
             );
 
-            $service = Service::firstOrCreate(
-                ['company_id' => $company->id, 'name' => 'Administration Générale']
-            );
+            // 3. Créer un service par défaut (ex: Direction Générale ou Informatique)
+            $service = Service::create([
+                'company_id' => $company->id,
+                'name' => 'Administration Générale'
+            ]);
 
-            // S'assurer que le poste d'administrateur existe
-            $posteAdmin = Poste::firstOrCreate(
-                ['level' => 'admin'],
-                ['name' => 'Administrateur Système']
-            );
+            // 4. Récupérer le poste Administrateur
+            $posteAdmin = Poste::where('level', 'admin')->first();
 
+            // 5. Créer le compte Super Admin
             $admin = User::create([
                 'company_id' => $company->id,
                 'name' => $request->admin_name,
@@ -103,6 +113,7 @@ class SetupController extends Controller
                 'status' => true,
             ]);
 
+            // 6. Affecter l'admin à son poste
             Affectation::create([
                 'user_id' => $admin->id,
                 'poste_id' => $posteAdmin->id,
@@ -111,6 +122,7 @@ class SetupController extends Controller
                 'started_at' => now(),
             ]);
 
+            // 7. Journaliser l'action
             Journal::create([
                 'user_id' => $admin->id,
                 'action' => 'APP_SETUP_COMPLETED',

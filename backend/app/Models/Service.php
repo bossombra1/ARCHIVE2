@@ -2,13 +2,18 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property int $id
+ * @property int $company_id
+ * @property int|null $department_id
+ * @property string $name
+ */
 class Service extends Model
 {
-    use HasFactory;
-
     protected $table = 'services';
 
     protected $fillable = [
@@ -17,21 +22,23 @@ class Service extends Model
         'name',
     ];
 
-    // Relation avec l'entreprise
-    public function company()
+    public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
     }
 
-    // Relation avec le département
-    public function department()
+    public function department(): BelongsTo
     {
         return $this->belongsTo(Department::class);
     }
 
-    // Relation avec les affectations (si un service est lié à des affectations d'employés)
-    public function affectations()
+    public function affectations(): HasMany
     {
         return $this->hasMany(Affectation::class);
+    }
+
+    public function documents(): HasMany
+    {
+        return $this->hasMany(Document::class);
     }
 }
