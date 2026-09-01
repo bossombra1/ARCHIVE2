@@ -362,17 +362,17 @@ export default function DocumentView() {
         <div className="modal d-block" tabIndex="-1" style={{ background: 'rgba(0,0,0,0.5)' }}>
           <div className="modal-dialog">
             <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title"><i className="bi bi-plus-lg me-2"></i>Nouveau document</h5>
-                <button type="button" className="btn-close" onClick={() => setShowUploadModal(false)}></button>
-              </div>
               <form onSubmit={handleUploadSubmit}>
+                <div className="modal-header">
+                  <h5 className="modal-title"><i className="bi bi-plus-lg me-2"></i>Nouveau document</h5>
+                  <button type="button" className="btn-close" onClick={() => setShowUploadModal(false)}></button>
+                </div>
                 <div className="modal-body">
                   {uploadError && <div className="alert alert-danger py-2">{uploadError}</div>}
                   <div className="mb-3">
                     <label className="form-label">Titre *</label>
                     <input type="text" className="form-control" value={upload.title}
-                      onChange={(e) => setUpload({ ...upload, title: e.target.value })} maxLength={191} required />
+                      onChange={(e) => setUpload({ ...upload, title: e.target.value })} maxLength={191} required autoFocus />
                   </div>
                   <div className="mb-3">
                     <label className="form-label">Type *</label>
@@ -419,7 +419,6 @@ export default function DocumentView() {
                 <button type="button" className="btn-close btn-close-white" onClick={closePreview}></button>
               </div>
               <div className="modal-body">
-                {/* Metadata */}
                 <div className="row mb-3 g-2">
                   <div className="col-md-6">
                     <small className="text-muted d-block">Type</small>
@@ -445,7 +444,6 @@ export default function DocumentView() {
                   )}
                 </div>
                 <hr />
-                {/* File preview */}
                 {previewModal.loading ? (
                   <div className="text-center py-4">
                     <div className="spinner-border text-primary" role="status"></div>

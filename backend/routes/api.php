@@ -32,10 +32,9 @@ Route::post('/login', [AuthController::class, 'login']);
 // ==========================================
 Route::middleware(['auth:sanctum', 'company.configured'])->group(function () {
 
-    // Déconnexion
+    // ---- Auth & profil ----
     Route::post('/logout', [AuthController::class, 'logout']);
 
-    // /me : renvoie user + affectation (avec poste.level) embarqués dans l'objet user
     Route::get('/me', function (Request $request) {
         $user = $request->user();
         $affectationActive = $user->affectations()
@@ -60,9 +59,27 @@ Route::middleware(['auth:sanctum', 'company.configured'])->group(function () {
         ]);
     });
 
+    // ---- Dashboard ----
+    Route::get('/dashboard/stats', [DashboardController::class, 'stats']);
+
     // ==========================================
-    // 3. LISTES MINIMALES (pour les sélecteurs du frontend)
+    // 3. ROUTES ACCESSIBLES À TOUS LES USERS AUTHENTIFIÉS
     // ==========================================
+    // Ces routes servent à alimenter les filtres, formulaires d'upload
+    // et la gestion des permissions documentaires. Elles ne retournent
+    // QUE les données de la company de l'utilisateur.
+
+    // Liste des types de documents (pour filtres + form upload)
+    Route::get('/document-types', [DocumentTypeController::class, 'index']);
+
+    // Liste des services (pour filtres + permissions modal)
+    Route::get('/services', [ServiceController::class, 'index']);
+
+    // Liste des postes (pour permissions modal)
+    Route::get('/postes', [PosteController::class, 'index']);
+    Route::get('/postes/{poste}', [PosteController::class, 'show']);
+
+    // Liste minimale des users (pour permissions modal cible user)
     Route::get('/users/minimal', function (Request $request) {
         return response()->json(
             User::where('company_id', $request->user()->company_id)
@@ -70,12 +87,8 @@ Route::middleware(['auth:sanctum', 'company.configured'])->group(function () {
         );
     });
 
-    Route::get('/postes', function () {
-        return response()->json(
-            Poste::select('id', 'name', 'level')->orderBy('id')->get()
-        );
-    });
-
+    // Listes minimales directions/départements (utilisées par certains formulaires
+    // non-admin, ex. affichage de la hiérarchie dans les filtres)
     Route::get('/directions/minimal', function (Request $request) {
         return response()->json(
             Direction::where('company_id', $request->user()->company_id)
@@ -91,37 +104,18 @@ Route::middleware(['auth:sanctum', 'company.configured'])->group(function () {
     });
 
     // ==========================================
-    // 4. RESSOURCES PRINCIPALES
+    // 4. DOCUMENTS (cœur GED) — sécurité par Policy
     // ==========================================
-    Route::apiResource('document-types', DocumentTypeController::class);
-    Route::apiResource('services', ServiceController::class);
-    Route::apiResource('directions', DirectionController::class);
-    Route::apiResource('departments', DepartmentController::class);
-    Route::apiResource('users', UserController::class);
-    Route::get('/postes', [PosteController::class, 'index']);
-    Route::get('/postes/{poste}', [PosteController::class, 'show']);
-    Route::get('/journals', [JournalController::class, 'index']);
+    // La visibilité des documents est gérée par DocumentVisibilityService
+    // (via DocumentPolicy), pas par un middleware poste:.
 
-    // Actions spécifiques sur les users
-    Route::post('/users/{id}/reset-password', [UserController::class, 'resetPassword']);
-    Route::put('/users/{id}/affectation', [UserController::class, 'updateAffectation']);
-    Route::post('/users/{id}/reactivate', [UserController::class, 'reactivate']);
-
-    // ==========================================
-    // 5. DASHBOARD
-    // ==========================================
-    Route::get('/dashboard/stats', [DashboardController::class, 'stats']);
-
-    // ==========================================
-    // 6. DOCUMENTS (cœur GED)
-    // ==========================================
     Route::get('/documents/{document}/download', [DocumentController::class, 'download'])
         ->name('documents.download');
     Route::apiResource('documents', DocumentController::class);
 
-    // ==========================================
-    // 6.bis. PERMISSIONS DOCUMENTAIRES
-    // ==========================================
+    // Permissions documentaires : la Policy vérifie que l'utilisateur est
+    // grantor sur le document concerné (admin/dg/directeur/resp_dep/chef_service
+    // dans leur périmètre). Pas besoin de middleware poste: ici.
     Route::get('/documents/{document}/permissions', [DocumentPermissionController::class, 'index'])
         ->name('documents.permissions.index');
     Route::post('/documents/{document}/permissions', [DocumentPermissionController::class, 'store'])
@@ -130,13 +124,39 @@ Route::middleware(['auth:sanctum', 'company.configured'])->group(function () {
         ->name('document-permissions.destroy');
 
     // ==========================================
-    // 7. RÉSERVÉ À L'ADMINISTRATEUR
+    // 5. ROUTES RÉSERVÉES À L'ADMINISTRATEUR SYSTÈME
     // ==========================================
-    Route::middleware('poste:admin')->prefix('admin')->group(function () {
-        Route::get('/journals', function () {
-            return response()->json([
-                'message' => 'Accès autorisé aux journaux du système (Réservé Admin)'
-            ]);
-        });
+    // Toutes les routes de gestion (CRUD sur la structure organisationnelle,
+    // les users, les journaux) sont réservées à l'admin. Un user non-admin
+    // qui tente d'appeler ces routes directement (via Postman, curl, etc.)
+    // recevra un 403 UNAUTHORIZED_POSTE.
+    Route::middleware('poste:admin')->group(function () {
+
+        // ---- Types de documents (CRUD complet) ----
+        Route::post('/document-types', [DocumentTypeController::class, 'store']);
+        Route::put('/document-types/{id}', [DocumentTypeController::class, 'update']);
+        Route::patch('/document-types/{id}', [DocumentTypeController::class, 'update']);
+        Route::delete('/document-types/{id}', [DocumentTypeController::class, 'destroy']);
+
+        // ---- Services (CRUD complet) ----
+        Route::post('/services', [ServiceController::class, 'store']);
+        Route::put('/services/{id}', [ServiceController::class, 'update']);
+        Route::patch('/services/{id}', [ServiceController::class, 'update']);
+        Route::delete('/services/{id}', [ServiceController::class, 'destroy']);
+
+        // ---- Directions (CRUD complet) ----
+        Route::apiResource('directions', DirectionController::class);
+
+        // ---- Départements (CRUD complet) ----
+        Route::apiResource('departments', DepartmentController::class);
+
+        // ---- Utilisateurs (CRUD complet + actions spécifiques) ----
+        Route::apiResource('users', UserController::class);
+        Route::post('/users/{id}/reset-password', [UserController::class, 'resetPassword']);
+        Route::put('/users/{id}/affectation', [UserController::class, 'updateAffectation']);
+        Route::post('/users/{id}/reactivate', [UserController::class, 'reactivate']);
+
+        // ---- Journaux d'audit (lecture seule) ----
+        Route::get('/journals', [JournalController::class, 'index']);
     });
 });

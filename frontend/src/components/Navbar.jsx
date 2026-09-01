@@ -7,22 +7,21 @@ import { authCheckService } from '../services/authCheckService';
 /**
  * Navbar de l'application.
  *
- * Structure (conforme au design validé) :
+ * Structure :
  *   - "Tableau de bord" et "Documents" : visibles par TOUS les rôles
- *   - "Paramètres" (menu déroulant) : réservé aux grantors
- *     (admin, dg, directeur, responsable_departement, chef_service)
- *     Contient : Types de documents, Services, Départements, Directions,
- *                Postes, Utilisateurs, Journaux d'audit
+ *   - "Paramètres" (menu déroulant) : visible UNIQUEMENT par l'admin
+ *     (poste.level === 'admin'). Contient toutes les vues d'administration :
+ *     Types de documents, Services, Départements, Directions, Postes,
+ *     Utilisateurs, Journaux d'audit.
  *
  * Sécurité : ce masquage est purement UX. La sécurité réelle reste côté
- * Laravel (middleware poste: + Policy).
+ * Laravel (middleware poste:admin + Policy).
  */
 export default function Navbar({ onLogout }) {
   const { user, lang, themeColor, t, updateUserSettings } = useApp();
 
-  const isAuthorized = authCheckService.hasLevelSync(user, [
-    'admin', 'dg', 'directeur', 'responsable_departement', 'chef_service',
-  ]);
+  // Seul l'Administrateur Système (level = 'admin') voit le menu Paramètres
+  const isAdmin = authCheckService.hasLevelSync(user, ['admin']);
 
   const handleLangChange = async (e) => {
     const newLang = e.target.value;
@@ -74,8 +73,8 @@ export default function Navbar({ onLogout }) {
               </NavLink>
             </li>
 
-            {/* Menu Paramètres — réservé aux grantors, contient tout le reste */}
-            {isAuthorized && (
+            {/* Menu Paramètres — visible UNIQUEMENT par l'admin */}
+            {isAdmin && (
               <li className="nav-item dropdown">
                 <a
                   className="nav-link dropdown-toggle"
@@ -88,10 +87,11 @@ export default function Navbar({ onLogout }) {
                   <i className="bi bi-gear me-1"></i> Paramètres
                 </a>
                 <ul className="dropdown-menu shadow" aria-labelledby="settingsDropdown">
+                  <li><h6 className="dropdown-header text-uppercase small fw-bold">Documents</h6></li>
                   <li><NavLink className="dropdown-item" to="/document-types"><i className="bi bi-file-earmark-text me-2"></i> Types de documents</NavLink></li>
-                  <li><NavLink className="dropdown-item" to="/services"><i className="bi bi-building me-2"></i> Services</NavLink></li>
                   <li><hr className="dropdown-divider" /></li>
                   <li><h6 className="dropdown-header text-uppercase small fw-bold">Structure Entreprise</h6></li>
+                  <li><NavLink className="dropdown-item" to="/services"><i className="bi bi-building me-2"></i> Services</NavLink></li>
                   <li><NavLink className="dropdown-item" to="/departments"><i className="bi bi-diagram-3 me-2"></i> Départements</NavLink></li>
                   <li><NavLink className="dropdown-item" to="/directions"><i className="bi bi-compass me-2"></i> Directions</NavLink></li>
                   <li><NavLink className="dropdown-item" to="/postes"><i className="bi bi-person-badge me-2"></i> Postes / Rôles</NavLink></li>

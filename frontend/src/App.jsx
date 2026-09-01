@@ -11,7 +11,11 @@ import DashboardView from './pages/dashboard/DashboardView';
 import DocumentView from './pages/documents/DocumentView';
 import TypeDocView from './pages/documents/TypeDocView';
 import ServiceView from './pages/company/ServiceView';
-import PlaceholderView from './pages/PlaceholderView';
+import DirectionsView from './pages/company/DirectionsView';
+import DepartmentsView from './pages/company/DepartmentsView';
+import PostesView from './pages/company/PostesView';
+import UsersView from './pages/company/UsersView';
+import JournalsView from './pages/company/JournalsView';
 import MainLayout from './components/MainLayout';
 
 /**
@@ -88,11 +92,11 @@ export default function App() {
             <Route path="/documents" element={<DocumentView />} />
             <Route path="/document-types" element={<TypeDocView />} />
             <Route path="/services" element={<ServiceView />} />
-            <Route path="/departments" element={<PlaceholderView title="Départements" />} />
-            <Route path="/directions" element={<PlaceholderView title="Directions" />} />
-            <Route path="/postes" element={<PlaceholderView title="Postes / Rôles" />} />
-            <Route path="/users" element={<PlaceholderView title="Utilisateurs & Accès" />} />
-            <Route path="/journals" element={<PlaceholderView title="Journaux d'audit" />} />
+            <Route path="/departments" element={<DepartmentsView />} />
+            <Route path="/directions" element={<DirectionsView />} />
+            <Route path="/postes" element={<PostesView />} />
+            <Route path="/users" element={<UsersView />} />
+            <Route path="/journals" element={<JournalsView />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Route>
         </Routes>
