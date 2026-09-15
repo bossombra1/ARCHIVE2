@@ -68,7 +68,7 @@ class SetupController extends Controller
 
         $request->validate([
             'company_name' => 'required|string|max:255',
-            'company_size' => 'required|in:small,large',
+            'company_size' => 'required|in:small,medium,large',
             'admin_name' => 'required|string|max:255',
             'admin_email' => 'required|email|unique:users,email',
             'admin_password' => 'required|min:6',

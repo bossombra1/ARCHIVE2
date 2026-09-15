@@ -15,6 +15,8 @@ import DirectionsView from './pages/company/DirectionsView';
 import DepartmentsView from './pages/company/DepartmentsView';
 import PostesView from './pages/company/PostesView';
 import UsersView from './pages/company/UsersView';
+import DocumentGrantsView from './pages/company/DocumentGrantsView';
+import PlanView from './pages/company/PlanView';
 import JournalsView from './pages/company/JournalsView';
 import MainLayout from './components/MainLayout';
 
@@ -96,6 +98,8 @@ export default function App() {
             <Route path="/directions" element={<DirectionsView />} />
             <Route path="/postes" element={<PostesView />} />
             <Route path="/users" element={<UsersView />} />
+            <Route path="/document-grants" element={<DocumentGrantsView />} />
+            <Route path="/plan" element={<PlanView />} />
             <Route path="/journals" element={<JournalsView />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Route>

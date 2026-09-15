@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Affectation;
 use App\Models\Document;
+use App\Models\DocumentActionGrant;
 use App\Models\DocumentPermission;
 use App\Models\User;
 use Illuminate\Contracts\Database\Eloquent\Builder;
@@ -89,24 +90,54 @@ class DocumentVisibilityService
         return $this->canView($user, $document);
     }
 
-    public function canCreate(User $user): bool
+   public function canCreate(User $user): bool
     {
         $affectation = $user->activeAffectation();
         if (! $affectation) {
             return false;
         }
-        return in_array($affectation->poste->level ?? null, [
+        $level = $affectation->poste->level ?? null;
+
+        // Postes hiérarchiques : droit de création par défaut, inchangé.
+        if (in_array($level, [
             self::LEVEL_ADMIN,
             self::LEVEL_DG,
             self::LEVEL_DIRECTEUR,
             self::LEVEL_RESP_DEP,
             self::LEVEL_CHEF_SERVICE,
-            self::LEVEL_EMPLOYE,
-            self::LEVEL_AGENT,
-        ], true);
+        ], true)) {
+            return true;
+        }
+
+        // Employé / agent temporaire : uniquement si l'Administrateur
+        // Système leur a explicitement accordé le droit d'ajouter (can_add).
+        return $this->hasActionGrant($user, 'add');
     }
 
-    public function canUpdate(User $user, Document $document): bool
+   public function canUpdate(User $user, Document $document): bool
+    {
+        if (! $this->canActOnDocumentBase($user, $document)) {
+            return false;
+        }
+        return $this->hierarchicalModifyOrDelete($user, $document)
+            || $this->hasActionGrant($user, 'modify', $document);
+    }
+
+    public function canDelete(User $user, Document $document): bool
+    {
+        if (! $this->canActOnDocumentBase($user, $document)) {
+            return false;
+        }
+        return $this->hierarchicalModifyOrDelete($user, $document)
+            || $this->hasActionGrant($user, 'delete', $document);
+    }
+
+    /**
+     * Pré-conditions communes à modifier/supprimer : document non passé en
+     * corbeille, même entreprise, affectation active. Si l'une échoue,
+     * aucun droit (hiérarchique ou accordé par l'admin) ne peut s'appliquer.
+     */
+    private function canActOnDocumentBase(User $user, Document $document): bool
     {
         if ($document->trashed()) {
             return false;
@@ -114,10 +145,17 @@ class DocumentVisibilityService
         if ((int) $document->company_id !== (int) $user->company_id) {
             return false;
         }
+        return $user->activeAffectation() !== null;
+    }
+
+    /**
+     * Droit hiérarchique "de base" (avant tout grant explicite), commun à
+     * modifier et supprimer : employé/agent limités à leurs propres
+     * documents, autres niveaux limités à leur périmètre organisationnel.
+     */
+    private function hierarchicalModifyOrDelete(User $user, Document $document): bool
+    {
         $affectation = $user->activeAffectation();
-        if (! $affectation) {
-            return false;
-        }
         $level = $affectation->poste->level ?? null;
 
         if (in_array($level, [self::LEVEL_EMPLOYE, self::LEVEL_AGENT], true)) {
@@ -127,9 +165,40 @@ class DocumentVisibilityService
         return $this->inNormalScope($affectation, $level, $document);
     }
 
-    public function canDelete(User $user, Document $document): bool
+    /**
+     * Vrai si l'utilisateur possède un DocumentActionGrant valide couvrant
+     * l'action demandée ('modify' | 'delete' | 'add'). Pour modify/delete,
+     * vérifie en plus que le grant couvre le document (portée 'all', ou
+     * document listé en portée 'specific'). 'add' est un droit global :
+     * $document est ignoré pour cette action.
+     */
+    private function hasActionGrant(User $user, string $action, ?Document $document = null): bool
     {
-        return $this->canUpdate($user, $document);
+        $grant = DocumentActionGrant::valid()
+            ->where('company_id', $user->company_id)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if (! $grant) {
+            return false;
+        }
+
+        $flag = match ($action) {
+            'modify' => $grant->can_modify,
+            'delete' => $grant->can_delete,
+            'add' => $grant->can_add,
+            default => false,
+        };
+
+        if (! $flag) {
+            return false;
+        }
+
+        if ($action === 'add') {
+            return true;
+        }
+
+        return $document !== null && $grant->coversDocument($document->id);
     }
 
     public function canGrantPermission(User $user, Document $document): bool

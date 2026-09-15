@@ -14,7 +14,7 @@ class CompanyFactory extends Factory
     {
         return [
             'name' => fake()->company(),
-            'size' => fake()->randomElement(['small', 'large']),
+           'size' => fake()->randomElement(['small', 'medium', 'large']),
             'logo_path' => null,
             'is_configured' => true,
         ];

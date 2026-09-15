@@ -10,6 +10,7 @@ use App\Models\Journal;
 use App\Models\Poste;
 use App\Models\Service;
 use App\Models\User;
+use App\Services\PlanLimitService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -19,6 +20,10 @@ use Illuminate\Validation\Rule;
 class UserController extends Controller
 {
     use AuthorizesRequests;
+
+    public function __construct(private readonly PlanLimitService $planLimit)
+    {
+    }
 
     /**
      * Liste paginée des utilisateurs de la company.
@@ -47,9 +52,16 @@ class UserController extends Controller
     /**
      * Crée un nouvel utilisateur + son affectation active.
      */
-    public function store(Request $request): JsonResponse
+   public function store(Request $request): JsonResponse
     {
         $companyId = $request->user()->company_id;
+
+        if (! $this->planLimit->canAddUser($request->user()->company)) {
+            return response()->json([
+                'error' => 'PLAN_USER_LIMIT_REACHED',
+                'message' => "Limite d'utilisateurs de votre forfait atteinte. Passez à un forfait supérieur pour ajouter de nouveaux utilisateurs.",
+            ], 403);
+        }
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',

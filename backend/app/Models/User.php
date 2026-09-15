@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
@@ -72,6 +73,16 @@ class User extends Authenticatable
     public function journals(): HasMany
     {
         return $this->hasMany(Journal::class);
+    }
+
+    /**
+     * Grant de droits d'action (modifier/supprimer/ajouter) accordé par
+     * l'Administrateur Système à cet utilisateur. Une seule ligne possible
+     * (contrainte unique company_id+user_id) — cf. DocumentActionGrant.
+     */
+    public function documentActionGrant(): HasOne
+    {
+        return $this->hasOne(DocumentActionGrant::class, 'user_id');
     }
 
     /*

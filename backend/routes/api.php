@@ -1,8 +1,10 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\DirectionController;
+use App\Http\Controllers\DocumentActionGrantController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\DocumentPermissionController;
 use App\Http\Controllers\DocumentTypeController;
@@ -59,8 +61,11 @@ Route::middleware(['auth:sanctum', 'company.configured'])->group(function () {
         ]);
     });
 
-    // ---- Dashboard ----
+   // ---- Dashboard ----
     Route::get('/dashboard/stats', [DashboardController::class, 'stats']);
+
+    // ---- Forfait (lecture, accessible à tous les users de la company) ----
+    Route::get('/company/plan-usage', [CompanyController::class, 'planUsage']);
 
     // ==========================================
     // 3. ROUTES ACCESSIBLES À TOUS LES USERS AUTHENTIFIÉS
@@ -156,7 +161,17 @@ Route::middleware(['auth:sanctum', 'company.configured'])->group(function () {
         Route::put('/users/{id}/affectation', [UserController::class, 'updateAffectation']);
         Route::post('/users/{id}/reactivate', [UserController::class, 'reactivate']);
 
-        // ---- Journaux d'audit (lecture seule) ----
+         // ---- Journaux d'audit (lecture seule) ----
         Route::get('/journals', [JournalController::class, 'index']);
+
+        // ---- Forfait : changement de taille/palier ----
+        Route::put('/company/size', [CompanyController::class, 'updateSize']);
+
+        // ---- Droits d'action documentaire (modifier/supprimer/ajouter) ----
+        // Accordés exclusivement par l'Administrateur Système, à un ou
+        // plusieurs utilisateurs simultanément (cf. store bulk).
+        Route::get('/document-action-grants', [DocumentActionGrantController::class, 'index']);
+        Route::post('/document-action-grants', [DocumentActionGrantController::class, 'store']);
+        Route::delete('/document-action-grants/{id}', [DocumentActionGrantController::class, 'destroy']);
     });
 });
