@@ -3,9 +3,17 @@ import { useApp } from '../../context/AppContext';
 import { authCheckService } from '../../services/authCheckService';
 import { documentService } from '../../services/documentService';
 import { typeDocService } from '../../services/typeDocService';
+import { planService } from '../../services/planService';
 
 export default function DocumentView() {
   const { user, t } = useApp();
+  const [documentLimitReached, setDocumentLimitReached] = useState(false);
+
+  useEffect(() => {
+    planService.getUsage()
+      .then((usage) => setDocumentLimitReached(Boolean(usage?.documents?.limit_reached)))
+      .catch(() => {});
+  }, []);
 
   const [documents, setDocuments] = useState([]);
   const [meta, setMeta] = useState({ current_page: 1, last_page: 1, total: 0, per_page: 15 });
@@ -84,7 +92,10 @@ export default function DocumentView() {
       setShowUploadModal(false);
       fetchDocuments();
     } catch (err) {
-      if (err?.response?.status === 422 && err?.response?.data?.errors) {
+      if (err?.response?.data?.error === 'PLAN_DOCUMENT_LIMIT_REACHED') {
+        setUploadError(err.response.data.message);
+        setDocumentLimitReached(true);
+      } else if (err?.response?.status === 422 && err?.response?.data?.errors) {
         const firstErr = Object.values(err.response.data.errors)[0];
         setUploadError(Array.isArray(firstErr) ? firstErr[0] : 'Données invalides.');
       } else {

@@ -23,8 +23,10 @@ class DocumentController extends Controller
 {
     use AuthorizesRequests;
 
-    public function __construct(private readonly DocumentVisibilityService $visibility)
-    {
+    public function __construct(
+        private readonly DocumentVisibilityService $visibility,
+        private readonly \App\Services\PlanLimitService $planLimit
+    ) {
     }
 
     /*
@@ -69,6 +71,13 @@ class DocumentController extends Controller
     {
         $user = $request->user();
         $this->authorize('create', Document::class);
+
+        if (! $this->planLimit->canAddDocument($user->company)) {
+            return response()->json([
+                'error' => 'PLAN_DOCUMENT_LIMIT_REACHED',
+                'message' => "Limite de documents de votre forfait atteinte. Contactez l'Administrateur Système pour passer à un forfait supérieur.",
+            ], 403);
+        }
 
         $affectation = $user->activeAffectation();
         if (! $affectation) {

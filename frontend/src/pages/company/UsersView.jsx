@@ -2,8 +2,16 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { adminService } from '../../services/adminService';
 import { serviceService } from '../../services/serviceService';
 import { typeDocService } from '../../services/typeDocService';
+import { planService } from '../../services/planService';
 
 export default function UsersView() {
+  const [userLimitReached, setUserLimitReached] = useState(false);
+
+  useEffect(() => {
+    planService.getUsage()
+      .then((usage) => setUserLimitReached(Boolean(usage?.users?.limit_reached)))
+      .catch(() => {}); // page reste utilisable même si /company/plan-usage échoue
+  }, []);
   const [users, setUsers] = useState([]);
   const [meta, setMeta] = useState({ current_page: 1, last_page: 1, total: 0 });
   const [filters, setFilters] = useState({ search: '', page: 1, per_page: 15 });
@@ -179,10 +187,17 @@ export default function UsersView() {
           <h2 className="fw-bold mb-1">Utilisateurs & Accès</h2>
           <p className="text-muted mb-0">{meta.total} utilisateur(s)</p>
         </div>
-        <button className="btn btn-primary" onClick={openCreateUser}>
+        <button className="btn btn-primary" onClick={openCreateUser} disabled={userLimitReached}
+          title={userLimitReached ? 'Limite du forfait atteinte' : ''}>
           <i className="bi bi-person-plus me-1"></i> Nouvel utilisateur
         </button>
       </div>
+      {userLimitReached && (
+        <div className="alert alert-warning py-2 small">
+          <i className="bi bi-exclamation-triangle me-1"></i>
+          Limite d'utilisateurs de votre forfait atteinte. Consultez la page Forfait & usage.
+        </div>
+      )}
 
       {/* Filtre */}
       <div className="card mb-3 border-0 shadow-sm">

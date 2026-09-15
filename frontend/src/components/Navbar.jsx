@@ -96,10 +96,11 @@ export default function Navbar({ onLogout }) {
                   <li><NavLink className="dropdown-item" to="/directions"><i className="bi bi-compass me-2"></i> Directions</NavLink></li>
                   <li><NavLink className="dropdown-item" to="/postes"><i className="bi bi-person-badge me-2"></i> Postes / Rôles</NavLink></li>
                   <li><hr className="dropdown-divider" /></li>
-                  <li><h6 className="dropdown-header text-uppercase small fw-bold">Administration Système</h6></li>
+                 <li><h6 className="dropdown-header text-uppercase small fw-bold">Administration Système</h6></li>
                   <li><NavLink className="dropdown-item" to="/users"><i className="bi bi-people me-2"></i> Utilisateurs & Accès</NavLink></li>
-                  <li><NavLink className="dropdown-item" to="/journals"><i className="bi bi-journal-text me-2"></i> Journaux d'audit</NavLink></li>
-                </ul>
+                  <li><NavLink className="dropdown-item" to="/document-grants"><i className="bi bi-shield-lock me-2"></i> Droits documentaires</NavLink></li>
+                  <li><NavLink className="dropdown-item" to="/plan"><i className="bi bi-graph-up me-2"></i> Forfait & usage</NavLink></li>
+                  <li><NavLink className="dropdown-item" to="/journals"><i className="bi bi-journal-text me-2"></i> Journaux d'audit</NavLink></li>                </ul>
               </li>
             )}
           </ul>
