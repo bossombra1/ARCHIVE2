@@ -42,7 +42,7 @@ class DocumentUploadTest extends TestCase
 
         $this->actingAs($chef, 'sanctum');
 
-        $file = UploadedFile::fake()->create('doc.pdf', 100, 'application/pdf');
+        $file = UploadedFile::fake()->createWithContent('doc.pdf', "%PDF-1.4\n% upload ARCHIVE2\n" . str_repeat('A', 300));
 
         $response = $this->postJson('/api/documents', [
             'title' => 'Mon document',
@@ -127,7 +127,7 @@ class DocumentUploadTest extends TestCase
 
         $this->actingAs($chef, 'sanctum');
 
-        $file = UploadedFile::fake()->create('doc.pdf', 100, 'application/pdf');
+        $file = UploadedFile::fake()->createWithContent('doc.pdf', "%PDF-1.4\n% upload ARCHIVE2\n" . str_repeat('A', 300));
 
         $response = $this->postJson('/api/documents', [
             'title' => 'Doc avec tentative de contournement',

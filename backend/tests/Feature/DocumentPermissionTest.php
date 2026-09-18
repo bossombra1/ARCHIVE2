@@ -132,7 +132,7 @@ class DocumentPermissionTest extends TestCase
     {
         $org = $this->org;
         $agent = $this->createUserWithPoste($org['company'], 'agent_temporaire', $org['serviceA1']);
-        $docB1 = $this->createDoc($org['company'], $org['serviceB1'], $agent); // pas son service
+        $docB1 = $this->createDoc($org['company'], $org['serviceB1'], $this->createUserWithPoste($org['company'], 'agent_temporaire', $org['serviceB1'])); // pas son service, pas son document
 
         DocumentPermission::create([
             'document_id' => $docB1->id,
