@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useApp } from '../../context/AppContext';
-import { authCheckService } from '../../services/authCheckService';
 import { documentService } from '../../services/documentService';
 import { typeDocService } from '../../services/typeDocService';
 import { planService } from '../../services/planService';
@@ -42,7 +41,9 @@ export default function DocumentView() {
   const [permError, setPermError] = useState('');
   const [targets, setTargets] = useState({ users: [], postes: [], services: [] });
 
-  const canGrant = authCheckService.canGrantPermissions(user);
+  // Droits par document (can_update / can_delete / can_grant_permission)
+  // calculés côté backend et renvoyés dans la liste : JAMAIS déduits du
+  // poste.level côté client. Voir DocumentController::index.
 
   const fetchDocuments = useCallback(async () => {
     setLoadingList(true);
@@ -329,13 +330,17 @@ export default function DocumentView() {
                           <button className="btn btn-sm btn-outline-success me-1" onClick={() => handleDownload(doc)} title="Télécharger">
                             <i className="bi bi-download"></i>
                           </button>
-                          <button className="btn btn-sm btn-outline-secondary me-1" onClick={() => openEditModal(doc)} title="Modifier">
-                            <i className="bi bi-pencil"></i>
-                          </button>
-                          <button className="btn btn-sm btn-outline-danger me-1" onClick={() => handleDelete(doc)} title="Supprimer">
-                            <i className="bi bi-trash"></i>
-                          </button>
-                          {canGrant && (
+                          {doc.can_update && (
+                            <button className="btn btn-sm btn-outline-secondary me-1" onClick={() => openEditModal(doc)} title="Modifier">
+                              <i className="bi bi-pencil"></i>
+                            </button>
+                          )}
+                          {doc.can_delete && (
+                            <button className="btn btn-sm btn-outline-danger me-1" onClick={() => handleDelete(doc)} title="Supprimer">
+                              <i className="bi bi-trash"></i>
+                            </button>
+                          )}
+                          {doc.can_grant_permission && (
                             <button className="btn btn-sm btn-outline-warning" onClick={() => openPermissions(doc)} title="Permissions">
                               <i className="bi bi-shield-lock"></i>
                             </button>

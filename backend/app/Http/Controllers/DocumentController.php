@@ -59,6 +59,16 @@ class DocumentController extends Controller
         $perPage = min(50, max(5, $request->integer('per_page', 15)));
         $documents = $query->orderByDesc('documents.created_at')->paginate($perPage);
 
+        // Droits calculés par document : c'est la SEULE façon fiable pour le
+        // frontend de savoir s'il doit afficher Modifier/Supprimer/Accorder
+        // des permissions — jamais déduit du seul poste.level côté client.
+        $documents->getCollection()->transform(function (Document $document) use ($user) {
+            $document->can_update = $this->visibility->canUpdate($user, $document);
+            $document->can_delete = $this->visibility->canDelete($user, $document);
+            $document->can_grant_permission = $this->visibility->canGrantPermission($user, $document);
+            return $document;
+        });
+
         return response()->json($documents);
     }
 
@@ -166,8 +176,11 @@ class DocumentController extends Controller
             return $this->notFoundResponse();
         }
 
-        $data = $document->toArray();
+       $data = $document->toArray();
         unset($data['file_path']);
+        $data['can_update'] = $this->visibility->canUpdate($user, $document);
+        $data['can_delete'] = $this->visibility->canDelete($user, $document);
+        $data['can_grant_permission'] = $this->visibility->canGrantPermission($user, $document);
         return response()->json(['document' => $data]);
     }
 

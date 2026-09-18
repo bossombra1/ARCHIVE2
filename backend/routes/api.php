@@ -164,8 +164,11 @@ Route::middleware(['auth:sanctum', 'company.configured'])->group(function () {
          // ---- Journaux d'audit (lecture seule) ----
         Route::get('/journals', [JournalController::class, 'index']);
 
-        // ---- Forfait : changement de taille/palier ----
-        Route::put('/company/size', [CompanyController::class, 'updateSize']);
+        // ---- Forfait : demande de changement (l'admin ne change plus le
+        // palier librement — voir PlanChangeRequest / plan:process) ----
+        Route::get('/company/plan-change-request', [CompanyController::class, 'currentPlanChangeRequest']);
+        Route::post('/company/plan-change-request', [CompanyController::class, 'requestPlanChange']);
+        Route::post('/company/plan-change-request/apply', [CompanyController::class, 'applyPlanChangeRequest']);
 
         // ---- Droits d'action documentaire (modifier/supprimer/ajouter) ----
         // Accordés exclusivement par l'Administrateur Système, à un ou
