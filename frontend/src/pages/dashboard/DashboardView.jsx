@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { dashboardService } from '../../services/dashboardService';
 import { documentService } from '../../services/documentService';
+import { planService } from '../../services/planService';
 import { useApp } from '../../context/AppContext';
 
 export default function DashboardView() {
@@ -15,7 +16,8 @@ export default function DashboardView() {
     total_documents: 0, total_document_types: 0, total_services: 0, total_users: 0,
     documents_by_type: []
   });
-  const [recentDocs, setRecentDocs] = useState([]);
+ const [recentDocs, setRecentDocs] = useState([]);
+  const [planUsage, setPlanUsage] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -23,12 +25,17 @@ export default function DashboardView() {
     try {
       setLoading(true);
       setError('');
-      const [statsData, docsData] = await Promise.all([
+      const [statsData, docsData, usageData] = await Promise.all([
         dashboardService.getStats(),
         documentService.getAll({ per_page: 5 }),
+        // Le forfait concerne toute l'entreprise : on l'affiche seulement à
+        // l'admin, mais l'échec de cet appel ne doit jamais casser le reste
+        // du dashboard (catch silencieux -> null).
+        isAdmin ? planService.getUsage().catch(() => null) : Promise.resolve(null),
       ]);
       setStats(statsData);
       setRecentDocs(docsData.data || []);
+      setPlanUsage(usageData);
     } catch (err) {
       setError('Impossible de charger les données. ' + (err?.response?.data?.message || ''));
     } finally {
@@ -256,7 +263,100 @@ export default function DashboardView() {
             </div>
           </>
         )}
-      </div>
+       </div>
+
+      {/* Forfait — Usage courant (admin uniquement, mode statistique) */}
+      {isAdmin && planUsage && (
+        <div className="mb-4">
+          <div className="d-flex justify-content-between align-items-center mb-2">
+            <h5 className="fw-bold mb-0">
+              <i className="bi bi-graph-up me-2"></i>Forfait — Usage courant
+              <span className="badge ms-2 align-middle" style={{ backgroundColor: '#7b1fa2' }}>{planUsage.label}</span>
+            </h5>
+            <NavLink to="/plan" className="small fw-semibold text-decoration-none">
+              Gérer le forfait <i className="bi bi-arrow-right ms-1"></i>
+            </NavLink>
+          </div>
+          <div className="row g-3">
+            <div className="col-6 col-lg-3">
+              <div className="card border-0 shadow-sm h-100">
+                <div className="card-body d-flex align-items-center">
+                  <div className="rounded-3 p-3 me-3" style={{ backgroundColor: planUsage.users.limit_reached ? '#fdecea' : '#e0f7fa' }}>
+                    <i className="bi bi-people fs-4" style={{ color: planUsage.users.limit_reached ? '#c62828' : '#00838f' }}></i>
+                  </div>
+                  <div>
+                    <div className="text-muted small text-uppercase">Utilisateurs</div>
+                    <div className="fs-4 fw-bold">{planUsage.users.used} / {planUsage.users.max ?? '∞'}</div>
+                    {planUsage.users.limit_reached
+                      ? <div className="small text-danger"><i className="bi bi-exclamation-triangle me-1"></i>Limite atteinte</div>
+                      : <div className="small text-muted">{planUsage.users.remaining} restant(s)</div>}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="col-6 col-lg-3">
+              <div className="card border-0 shadow-sm h-100">
+                <div className="card-body d-flex align-items-center">
+                  <div className="rounded-3 p-3 me-3" style={{ backgroundColor: planUsage.documents.limit_reached ? '#fdecea' : '#e8f5e9' }}>
+                    <i className="bi bi-file-earmark-text fs-4" style={{ color: planUsage.documents.limit_reached ? '#c62828' : '#2e7d32' }}></i>
+                  </div>
+                  <div>
+                    <div className="text-muted small text-uppercase">Documents</div>
+                    <div className="fs-4 fw-bold">{planUsage.documents.used} / {planUsage.documents.max ?? '∞'}</div>
+                    {planUsage.documents.limit_reached
+                      ? <div className="small text-danger"><i className="bi bi-exclamation-triangle me-1"></i>Limite atteinte</div>
+                      : <div className="small text-muted">{planUsage.documents.remaining} restant(s)</div>}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="col-6 col-lg-3">
+              <div className="card border-0 shadow-sm h-100">
+                <div className="card-body d-flex align-items-center">
+                  <div className="rounded-3 p-3 me-3" style={{ backgroundColor: '#f3e5f5' }}>
+                    <i className="bi bi-box-seam fs-4" style={{ color: '#7b1fa2' }}></i>
+                  </div>
+                  <div>
+                    <div className="text-muted small text-uppercase">Forfait actuel</div>
+                    <div className="fs-6 fw-bold">{planUsage.label}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="col-6 col-lg-3">
+              <div className="card border-0 shadow-sm h-100">
+                <div className="card-body">
+                  <div className="text-muted small text-uppercase mb-2">Consommation</div>
+                  {[
+                    { label: 'Utilisateurs', u: planUsage.users },
+                    { label: 'Documents', u: planUsage.documents },
+                  ].map(({ label, u }) => {
+                    const pct = u.max ? Math.min(100, Math.round((u.used / u.max) * 100)) : 0;
+                    const barClass = u.limit_reached || pct >= 100 ? 'bg-danger' : pct > 80 ? 'bg-warning' : 'bg-success';
+                    return (
+                      <div key={label} className="mb-2">
+                        <div className="d-flex justify-content-between small">
+                          <span>{label}</span>
+                          <span className={pct >= 100 || u.limit_reached ? 'text-danger fw-semibold' : 'text-muted'}>{u.max ? `${pct} %` : '—'}</span>
+                        </div>
+                        {u.max ? (
+                          <div className="progress" style={{ height: '6px' }}>
+                            <div className={`progress-bar ${barClass}`} style={{ width: `${pct}%` }}></div>
+                          </div>
+                        ) : (
+                          <div className="progress" style={{ height: '6px' }}>
+                            <div className="progress-bar bg-success" style={{ width: '100%' }}></div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Contenu principal : Documents récents + Diagramme */}
       <div className="row g-4">

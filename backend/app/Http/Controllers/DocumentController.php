@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\DocumentStoreRequest;
 use App\Http\Requests\DocumentUpdateRequest;
+use App\Models\AmbiguousAffectationException;
 use App\Models\Document;
 use App\Models\Journal;
 use App\Services\DocumentVisibilityService;
@@ -58,6 +59,16 @@ class DocumentController extends Controller
 
         $perPage = min(50, max(5, $request->integer('per_page', 15)));
         $documents = $query->orderByDesc('documents.created_at')->paginate($perPage);
+
+        // Droits calculés par document : c'est la SEULE façon fiable pour le
+        // frontend de savoir s'il doit afficher Modifier/Supprimer/Accorder
+        // des permissions — jamais déduit du seul poste.level côté client.
+        $documents->getCollection()->transform(function (Document $document) use ($user) {
+            $document->can_update = $this->visibility->canUpdate($user, $document);
+            $document->can_delete = $this->visibility->canDelete($user, $document);
+            $document->can_grant_permission = $this->visibility->canGrantPermission($user, $document);
+            return $document;
+        });
 
         return response()->json($documents);
     }
@@ -166,8 +177,11 @@ class DocumentController extends Controller
             return $this->notFoundResponse();
         }
 
-        $data = $document->toArray();
+       $data = $document->toArray();
         unset($data['file_path']);
+        $data['can_update'] = $this->visibility->canUpdate($user, $document);
+        $data['can_delete'] = $this->visibility->canDelete($user, $document);
+        $data['can_grant_permission'] = $this->visibility->canGrantPermission($user, $document);
         return response()->json(['document' => $data]);
     }
 
@@ -308,8 +322,22 @@ class DocumentController extends Controller
         if (! $user) {
             throw new AuthenticationException();
         }
-        if (! $this->visibility->canCreate($user)) {
-            throw new AuthorizationException('Aucune affectation active ou compte non autorisé.');
+
+        // Lister les documents n'exige PAS le droit de creation : un employe/agent
+        // voit les documents de son service sans droit d'ajout (spec. 20
+        // scenarios 6-7). Le filtrage reste assure par scopeForUser, et l'upload
+        // reste verrouille separement (Policy create + Droits d'action documentaire).
+        // Conflit d'affectations actives = anomalie de donnees -> refus 403 explicite.
+        try {
+            $hasActiveAffectation = $user->activeAffectation() !== null;
+        } catch (AmbiguousAffectationException $e) {
+            throw new AuthorizationException(
+                "Plusieurs affectations actives detectees. Veuillez contacter l'administrateur."
+            );
+        }
+
+        if (! $hasActiveAffectation) {
+            throw new AuthorizationException('Aucune affectation active ou compte non autorise.');
         }
     }
 

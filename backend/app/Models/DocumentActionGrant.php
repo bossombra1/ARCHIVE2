@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -21,6 +22,8 @@ use Illuminate\Support\Carbon;
  */
 class DocumentActionGrant extends Model
 {
+    use HasFactory;
+
     public const SCOPE_ALL = 'all';
     public const SCOPE_SPECIFIC = 'specific';
 

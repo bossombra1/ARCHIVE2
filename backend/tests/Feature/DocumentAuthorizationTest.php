@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Affectation;
 use App\Models\AmbiguousAffectationException;
+use App\Models\DocumentActionGrant;
 use App\Models\Document;
 use App\Models\DocumentPermission;
 use App\Models\Poste;
@@ -377,6 +378,19 @@ class DocumentAuthorizationTest extends TestCase
         $org = $this->org;
         $agent = $this->createUserWithPoste($org['company'], 'agent_temporaire', $org['serviceA1']);
 
+        // Depuis la gestion des Droits d'action documentaire, un agent ne peut
+        // ajouter des documents que si l'Administrateur Systeme lui a
+        // explicitement accorde can_add (cf. DocumentVisibilityService).
+        DocumentActionGrant::create([
+            'company_id' => $org['company']->id,
+            'user_id' => $agent->id,
+            'granted_by' => $agent->id,
+            'can_modify' => false,
+            'can_delete' => false,
+            'can_add' => true,
+            'scope' => 'specific',
+        ]);
+
         $this->actingAsSanctum($agent);
 
         // Le frontend tente d'envoyer service_id = serviceB1 (autre service)
@@ -385,7 +399,7 @@ class DocumentAuthorizationTest extends TestCase
             'title' => 'Test upload cross-service',
             'document_type_id' => $org['docType']->id,
             'service_id' => $org['serviceB1']->id, // tentative de contournement
-            'file' => \Illuminate\Http\UploadedFile::fake()->create('test.pdf', 100, 'application/pdf'),
+            'file' => \Illuminate\Http\UploadedFile::fake()->createWithContent('test.pdf', "%PDF-1.4\n% upload ARCHIVE2\n" . str_repeat('A', 300)),
         ]);
 
         $response->assertStatus(201);

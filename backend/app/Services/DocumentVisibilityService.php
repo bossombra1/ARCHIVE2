@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\AmbiguousAffectationException;
 use App\Models\Affectation;
 use App\Models\Document;
 use App\Models\DocumentActionGrant;
@@ -75,7 +76,15 @@ class DocumentVisibilityService
         if ((int) $document->company_id !== (int) $user->company_id) {
             return false;
         }
-        $affectation = $user->activeAffectation();
+                // Conflit d'affectations actives (anomalie de donnees) : une simple
+        // verification de visibilite doit repondre false, jamais lever
+        // d'exception (la journalisation reste faite par DocumentPolicy::safe
+        // au niveau HTTP).
+        try {
+            $affectation = $user->activeAffectation();
+        } catch (AmbiguousAffectationException $e) {
+            return false;
+        }
         if (! $affectation) {
             return false;
         }
